@@ -5,6 +5,7 @@ output: html_document
 
 ### Some statistics regarding senior performance in HURT
 
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(jsonlite)
@@ -13,7 +14,7 @@ library(dplyr)
 library(DT)
 ```
 
-```{r, echo=F, eval=T}
+```{r, echo=F, eval=F}
 # baseurl <- 'https://ultrasignup.com/results_event.aspx?did='
 baseurl <- "https://ultrasignup.com/service/events.svc/results/%s/1/json?_search=false"
 dids <- read_csv('hurt_did.csv', col_types = cols(.default = col_character()))
@@ -30,19 +31,26 @@ for (i in 1:nrow(dids)) {
 }
 ```
 
-```{r, echo=F, eval=F}
+```{r, echo=F, eval=T}
 hurt<- read.csv('hurt.csv')
 ```
 
 ```{r, echo=F}
+# filter out Big John
+hurt <- filter(hurt,bib != 1)
+hurt$time <- as.integer(hurt$time)
 total <- nrow(filter(hurt, age>=60))
 totalm <- nrow(filter(hurt, age>=60, gender=='M'))
 totalf <- nrow(filter(hurt, age>=60, gender=='F'))
+
+curyear <- as.integer(format(Sys.Date(),"%Y"))
+curyearfinishers <- filter(hurt,time>0,year==curyear)
+oldest <- max(curyearfinishers$age)
 ```
 
-The [HURT 100](http://hurt100.com) is said to be one of the hardest 100 mile trail races around. In the 2023 edition, the oldest finisher was 59 years old. Compare that to Western States, which in its most recent edition had 13 finishers age 60+. Or UTMB, which had 37 finishers 60+, including one aged 70+!! That got me to wondering, just how rare is it for a geezer to finish HURT?
+The [HURT 100](http://hurt100.com) is said to be one of the hardest 100 mile trail races around. In the `r curyear` edition, the oldest finisher was `r oldest` years old. Compare that to Western States, which in its 2023 edition had 13 finishers age 60+. Or UTMB, which had 37 finishers 60+, including one aged 70+!! So just how rare is it for an age 60+ runner to finish HURT?
 
-As of `r format(Sys.Date(),"%Y")`, a total of `r totalm+totalf` (`r totalm` men, `r totalf` women) geezers 60 years or older have attempted HURT, with the largest number occurring in the most recent year, 2023. 
+As of `r format(Sys.Date(),"%Y")`, a total of `r totalm+totalf` (`r totalm` men, `r totalf` women) runners 60 years or older have attempted HURT, with the largest numbers occurring in the two most recent years, 2023 and 2024. 
 
 ```{r, warning=F,message=F, echo=F }
 hurt %>%
@@ -53,17 +61,17 @@ hurt %>%
 
 ```
 
-Yet only `r nrow(distinct(select(filter(hurt, age>=60, formattime>0),participant_id)))` of these geezers have finished (as a geezer). Here's a list of those geezers who did it, ordered by their finish times:
+And yet only `r nrow(distinct(select(filter(hurt, age>=60, time>0),participant_id)))` of these runners have finished (at age 60+). Here's a list of those runners who did it, ordered by their finish times:
 
 ```{r, echo=F}
 hurt %>%
-  filter(age >= 60, formattime>0) %>%
+  filter(age >= 60, time>0) %>%
   mutate(name = paste(firstname,lastname)) %>%
   arrange(time) %>%
   select(name,age,time=formattime,state,year) %>%
   datatable(rownames=F, options=list(pageLength=20, dom='t'))
 ```
-Incredibly, several of these geezers have done it more than once, as shown in the `over60` column below.
+Incredibly, several of these runners have done it more than once, as shown in the `over60` column below.
 
 ```{r, message=F, echo=F}
 # participant_ids of geezer completers
@@ -97,9 +105,9 @@ geezers %>%
   
 ```
 
-So just three people have more than one geezer finish in HURT.  Ernie Floyd has the most geezer finishes, and all of his HURT finishes were completed at age 60+. Wow! Alfred Bogenhuber and Hans-Dieter Weisshaar are the only people to have completed HURT on their first attempt at age 60+. 
+So just three people have more than one HURT finish at age 60 or over.  Ernie Floyd has the most geezer finishes, and all of his HURT finishes were completed at age 60+. Wow! Alfred Bogenhuber and Hans-Dieter Weisshaar are the only people to have completed HURT on their first attempt at age 60+. 
 
-In contrast, most of these geezers do have previous finishes as a non-geezer -- though perhaps surprizingly, they weren't all that much younger when the had their non-geezer finishes. 
+In contrast, most of these runners do have previous finishes before age 60 -- though perhaps surprizingly, they weren't all that much younger when the had their earlier finishes. 
 
 ```{r, echo=F}
 hurt %>%
@@ -110,7 +118,7 @@ hurt %>%
   datatable(rownames = F, options = list(dom='t',pageLength=20), caption="Non-geezer finishes for participants having a geezer finish under their belt. ")
 ```
 
-A total of `r nrow(distinct(select(filter(hurt,agegroup=="50-59"),participant_id)))` people have completed HURT in their pre-geezer (age 50-59), but most of these have yet to make a geezer finish.  
+A total of `r nrow(distinct(select(filter(hurt,agegroup=="50-59"),participant_id)))` people have completed HURT in their pre-senior (age 50-59), but most of these have yet to finish HURT at age 60+.  
 
 
 <br/><br/><hr/>
