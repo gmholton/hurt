@@ -19,7 +19,7 @@ library(DT)
 baseurl <- "https://ultrasignup.com/service/events.svc/results/%s/1/json?_search=false"
 dids <- read_csv('hurt_did.csv', col_types = cols(.default = col_character()))
 
-hurt <- data.frame()
+hurt <- data.frame()hurt
 for (i in 1:nrow(dids)) {
   row <- dids[i,]
   url <- sprintf(baseurl, URLencode(row$did))  
@@ -37,8 +37,9 @@ hurt<- read.csv('hurt.csv')
 
 ```{r, echo=F}
 # filter out Big John
-hurt <- filter(hurt,bib != 1)
+hurt <- filter(hurt,bib != '1' | year != 2024)
 hurt$time <- as.integer(hurt$time)
+hurt$age <- as.integer(hurt$age)
 total <- nrow(filter(hurt, age>=60))
 totalm <- nrow(filter(hurt, age>=60, gender=='M'))
 totalf <- nrow(filter(hurt, age>=60, gender=='F'))
