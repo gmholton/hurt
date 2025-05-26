@@ -3,7 +3,19 @@ title: "HURT 100 Geezer Meter"
 output: html_document
 ---
 
+
+**UPDATE FOR 2025**: HURT moved from a long-established practice of reporting results on [Ultrasignup](https://ultrasignup.com/) to instead using [Webscorer](https://www.webscorer.com/). 
+This complicates things a bit, as (i) older results are no longer (easily) accesible on Ultrasignup; and (ii) two different formats of results need to be intergrated. But the biggest complication is that the Webscorer results do not include ages, just age ranges. 
+
+The task for 2025 is made much easier by the fact that  2025 was not a good year for us geezers. Of the seven starters in the 60+ category (all men, one 70+), none finished. 
+
+Because Webscorer doesn't report ages, I can't tell you the age of the oldest finisher----though 10 men and 4 women in the 50-59 range finished the race, which is pretty awesome. 
+
+
 ### Some statistics regarding senior performance in HURT
+
+
+
 
 
 ```{r setup, include=FALSE}
@@ -19,7 +31,7 @@ library(DT)
 baseurl <- "https://ultrasignup.com/service/events.svc/results/%s/1/json?_search=false"
 dids <- read_csv('hurt_did.csv', col_types = cols(.default = col_character()))
 
-hurt <- data.frame()hurt
+hurt <- data.frame()
 for (i in 1:nrow(dids)) {
   row <- dids[i,]
   url <- sprintf(baseurl, URLencode(row$did))  
@@ -32,10 +44,10 @@ for (i in 1:nrow(dids)) {
 ```
 
 ```{r, echo=F, eval=T}
-hurt<- read.csv('hurt.csv')
+hurt<- read.csv('hurt2021-2024.csv')
 ```
 
-```{r, echo=F}
+```{r, echo=F, message=F, warning=F}
 # filter out Big John
 hurt <- filter(hurt,bib != '1' | year != 2024)
 hurt$time <- as.integer(hurt$time)
@@ -44,14 +56,69 @@ total <- nrow(filter(hurt, age>=60))
 totalm <- nrow(filter(hurt, age>=60, gender=='M'))
 totalf <- nrow(filter(hurt, age>=60, gender=='F'))
 
+
+# hack for 2025
+totalm <- totalm+7
+
+```
+
+
+```{r, message = F, echo=F, warning=F}
+# Read the existing 2021-2024 data
+hurt_2021_2024 <- hurt #read_csv('hurt20212024.csv')
+
+# Read the 2025 data (tab-delimited)
+hurt_2025_raw <- read_delim('hurt2025.csv', delim = '\t')
+
+# Process the 2025 data to match the required format
+hurt_2025_processed <- hurt_2025_raw %>%
+  select(
+    bib = Bib,
+    firstname = `First name`,
+    lastname = `Last name`,
+    agegroup = Category,
+    gender = Gender,
+    formattime = Time
+  ) %>%
+  mutate(
+    # Extract age from agegroup (first part before the dash)
+    age = as.numeric(sub("-.*", "", agegroup)),
+    gender = substr(gender, 1, 1),
+    # Convert time from HH:MM:SS format to seconds
+    time = sapply(formattime, function(x) {
+      parts <- as.numeric(strsplit(x, ":")[[1]])
+      return(parts[1] * 3600 + parts[2] * 60 + parts[3])
+    }),
+    
+    # Add year
+    year = 2025,
+    id = 0,
+    state=""
+  ) %>%
+  mutate(
+    time = ifelse(is.na(time),0,time),
+    formattime = ifelse(formattime=="DNF","",formattime)
+  ) %>%
+
+  select(age, agegroup, gender, state, bib, id, firstname, lastname, time, formattime, year)
+
+# Get only the columns we need from the 2021-2024 data
+hurt_2021_2024_subset <- hurt_2021_2024 %>%
+  select(age, agegroup, gender, state, bib, id = participant_id, firstname, lastname, time, formattime, year)
+
+# Combine the datasets
+hurt <- bind_rows(hurt_2021_2024_subset, hurt_2025_processed)
+
+
 curyear <- as.integer(format(Sys.Date(),"%Y"))
 curyearfinishers <- filter(hurt,time>0,year==curyear)
 oldest <- max(curyearfinishers$age)
+
 ```
 
-The [HURT 100](http://hurt100.com) is said to be one of the hardest 100 mile trail races around. In the `r curyear` edition, the oldest finisher was `r oldest` years old. Compare that to Western States, which in its 2023 edition had 13 finishers age 60+. Or UTMB, which had 37 finishers 60+, including one aged 70+!! So just how rare is it for an age 60+ runner to finish HURT?
+The [HURT 100](http://hurt100.com) is said to be one of the hardest 100 mile trail races around. As noted, no one  60 or older finished the race in 2025. <!-- In the `r curyear` edition, the oldest finisher was `r oldest` years old.--> Compare that to Western States, which in its 2023 edition had 13 finishers age 60+. Or UTMB, which had 37 finishers 60+, including one aged 70+!! So just how rare is it for an age 60+ runner to finish HURT?
 
-As of `r format(Sys.Date(),"%Y")`, a total of `r totalm+totalf` (`r totalm` men, `r totalf` women) runners 60 years or older have attempted HURT, with the largest numbers occurring in the two most recent years, 2023 and 2024. 
+As of `r format(Sys.Date(),"%Y")`, a total of `r totalm+totalf` (`r totalm` men, `r totalf` women) runners 60 years or older have attempted HURT, with the largest numbers occurring in the three most recent years. 
 
 ```{r, warning=F,message=F, echo=F }
 hurt %>%
@@ -62,7 +129,7 @@ hurt %>%
 
 ```
 
-And yet only `r nrow(distinct(select(filter(hurt, age>=60, time>0),participant_id)))` of these runners have finished (at age 60+). Here's a list of those runners who did it, ordered by their finish times:
+And yet only `r nrow(distinct(select(filter(hurt, age>=60, time>0),id)))` of these runners have finished (at age 60+). Here's a list of those runners who did it, ordered by their finish times:
 
 ```{r, echo=F}
 hurt %>%
@@ -78,33 +145,66 @@ Incredibly, several of these runners have done it more than once, as shown in th
 # participant_ids of geezer completers
 ids <- hurt %>%
   filter(age>=60, formattime>0) %>%
-  select(participant_id) %>%
+  select(id) %>%
   distinct()
 geezer_finish <- hurt %>%
-  filter(participant_id %in% ids$participant_id, formattime>0) %>%
+  filter(id %in% ids$id, formattime>0) %>%
   mutate(name= paste(firstname,lastname)) %>%
-  group_by(participant_id) %>%
+  group_by(id) %>%
   summarise(finishes=n()) 
 geezer_over60 <- hurt %>%
-  filter(participant_id %in% ids$participant_id, formattime>0, age>=60) %>%
+  filter(id %in% ids$id, formattime>0, age>=60) %>%
   mutate(name= paste(firstname,lastname)) %>%
-  group_by(participant_id) %>%
+  group_by(id) %>%
   summarise(over60=n()) 
 geezers <- hurt %>%
-  filter(participant_id %in% ids$participant_id) %>%
+  filter(id %in% ids$id) %>%
   mutate(name= paste(firstname,lastname)) %>%
-  group_by(participant_id,name) %>%
+  group_by(id,name) %>%
   summarise(attempts=n()) 
 geezers<- cbind(geezers,finishes=geezer_finish$finishes)
 geezers<- cbind(geezers,over60=geezer_over60$over60)
+
+```
+
+```{r, echo=F, eval=F}
+# participant_ids of geezer completers
+ids <- hurt %>%
+  filter(age>=60, formattime>0) %>%
+  select(id) %>%
+  distinct()
+
+geezer_finish <- hurt %>%
+  filter(id %in% ids$id, formattime>0) %>%
+  mutate(name= paste(firstname,lastname)) %>%
+  group_by(id) %>%
+  summarise(finishes=n()) 
+
+geezer_over60 <- hurt %>%
+  filter(id %in% ids$id, formattime>0, age>=60) %>%
+  mutate(name= paste(firstname,lastname)) %>%
+  group_by(id) %>%
+  summarise(over60=n()) 
+
+geezers <- hurt %>%
+  filter(id %in% ids$id) %>%
+  mutate(name= paste(firstname,lastname)) %>%
+  group_by(id,name) %>%
+  summarise(attempts=n()) %>%
+  left_join(geezer_finish, by = "id") %>%
+  left_join(geezer_over60, by = "id")
+```
+
+```{r, message=F, echo=F}
 geezers %>%
   ungroup %>%
-  select(-participant_id) %>%
+  select(-id) %>%
   arrange(-over60) %>%
   datatable(rownames = F,caption="Number of HURT 100 attempts (all ages), total finishes (all ages), and finishes over age 60.", options = list(dom='t',pageLength=20))
-
-  
 ```
+
+
+
 
 So just three people have more than one HURT finish at age 60 or over.  Ernie Floyd has the most geezer finishes, and all of his HURT finishes were completed at age 60+. Wow! Alfred Bogenhuber and Hans-Dieter Weisshaar are the only people to have completed HURT on their first attempt at age 60+. 
 
@@ -112,14 +212,14 @@ In contrast, most of these runners do have previous finishes before age 60 -- th
 
 ```{r, echo=F}
 hurt %>%
-  filter(participant_id %in% ids$participant_id, formattime>0, age<60) %>%
+  filter(id %in% ids$id, formattime>0, age<60) %>%
   mutate(name=paste(firstname, lastname)) %>%
   arrange(lastname) %>%
   select(name, age, time=formattime,year) %>%
   datatable(rownames = F, options = list(dom='t',pageLength=20), caption="Non-geezer finishes for participants having a geezer finish under their belt. ")
 ```
 
-A total of `r nrow(distinct(select(filter(hurt,agegroup=="50-59"),participant_id)))` people have completed HURT in their pre-senior (age 50-59), but most of these have yet to finish HURT at age 60+.  
+A total of `r nrow(distinct(select(filter(hurt,agegroup=="50-59"),id)))` people have completed HURT in their pre-senior (age 50-59), but most of these have yet to finish HURT at age 60+.  
 
 
 <br/><br/><hr/>
